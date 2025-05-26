@@ -1,15 +1,13 @@
 from aws_cdk import (
-    Duration,
     Stack,
     aws_s3 as s3,
-    aws_lambda as lambda_,
-    aws_lambda_event_sources as lambda_event_sources, 
+    aws_s3_notifications as s3n,
     aws_sqs as sqs,
 )
 from constructs import Construct
 
 '''
-Upload audio file to S3 -> Lambda function -> SQS
+Upload audio file to S3 -> S3 event -> SQS
 '''
 
 class InputStack(Stack):
@@ -22,25 +20,10 @@ class InputStack(Stack):
 
         queue = sqs.Queue(self, "transcriptionQueue")
 
-        function = lambda_.Function(
-            self, "notifyTranscriptionQueue",
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            code=lambda_.Code.from_asset("lambda"),
-            handler="notifyTranscriptionQueue.handler",
-            environment={
-                "QUEUE_URL": queue.queue_url
-            }
-        )
-
-        # Grant permisions
-        bucket.grant_read(function)
-        queue.grant_send_messages(function)
-
-        # Add event trigger
-        function.add_event_source(
-            lambda_event_sources.S3EventSource(
-                bucket,
-                events=[s3.EventType.OBJECT_CREATED]
-            )
+        # S3 directly notifies SQS
+        notification = s3n.SqsDestination(queue)
+        bucket.add_event_notification(
+            s3.EventType.OBJECT_CREATED,
+            notification
         )
 

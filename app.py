@@ -8,8 +8,8 @@ from hello_cdk.learn_stack import LearnStack
 
 
 app = cdk.App()
-# InputStack(app, "InputStack")
-LearnStack(app, "LearnStack")
+InputStack(app, "InputStack")
+# LearnStack(app, "LearnStack")
 
 
 app.synth()
