@@ -15,15 +15,19 @@ class InputStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # Resources, minimal versions for now
-        bucket = s3.Bucket(self, "meetingSummarizer")
+        self.bucket = s3.Bucket(
+            self, "MeetingSummarizerBucket",
+            bucket_name="meeting-summarizer-yanlu"
+        )
 
-        queue = sqs.Queue(self, "transcriptionQueue")
+        self.audio_queue = sqs.Queue(
+            self, "AuioUploadQueue",
+            queue_name="AudioUploadQueue-yanlu"
+        )
 
-        # S3 directly notifies SQS
-        notification = s3n.SqsDestination(queue)
-        bucket.add_event_notification(
+        self.bucket.add_event_notification(
             s3.EventType.OBJECT_CREATED,
-            notification
+            s3n.SqsDestination(self.audio_queue),
+            s3.NotificationKeyFilter(prefix="audios/")
         )
 
