@@ -4,6 +4,7 @@ from aws_cdk import (
     aws_s3 as s3,
     aws_lambda as lambda_,
     aws_lambda_event_sources as lambda_event_sources,
+    aws_iam as iam,
     aws_stepfunctions as sfn,
     aws_stepfunctions_tasks as tasks,
 )
@@ -44,6 +45,7 @@ class AIStack(Stack):
         # Transcribe starts transcription job and saves text to S3
         transcribe_lambda = lambda_.Function(
             self, "StartTranscribeLambda",
+            function_name="StartTranscriptionJob",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="transcribe_start.handler",
             code=lambda_.Code.from_asset("lambda"),
@@ -58,7 +60,14 @@ class AIStack(Stack):
             lambda_event_sources.SqsEventSource(input_stack.audio_queue)
         )
 
+        # Grant permissions
+        input_stack.audio_queue.grant_consume_messages(transcribe_lambda)
         input_stack.bucket.grant_read(transcribe_lambda)
+        input_stack.bucket.grant_put(transcribe_lambda)
+        transcribe_lambda.add_to_role_policy(iam.PolicyStatement(
+            actions=["transcribe:StartTranscriptionJob"],
+            resources=["*"]
+        ))
 
 
         # # Lambda: Fetch transcript text from S3
