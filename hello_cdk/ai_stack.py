@@ -72,19 +72,7 @@ class AIStack(Stack):
 
         process_transcript_lambda = input_stack.process_transcript_lambda
 
-        # # Comprehend
-        # comprehend_policy = iam.PolicyStatement(
-        #     actions=["comprehend:DetectSentiment"],
-        #     resources=["*"]
-        # )
-        # process_transcript_lambda.add_to_role_policy(comprehend_policy)
 
-        # # Bedrock permissions (specific to the deepseek model)
-        # bedrock_policy = iam.PolicyStatement(
-        #     actions=["bedrock:InvokeModel"],
-        #     resources=["arn:aws:bedrock:*::foundation-model/deepseek.r1-v1:0"]
-        # )
-        # process_transcript_lambda.add_to_role_policy(bedrock_policy)
 
         # # Lambda: Save summary to S3
         # save_summary_lambda = lambda_.Function(
