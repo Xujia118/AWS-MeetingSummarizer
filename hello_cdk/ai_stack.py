@@ -70,8 +70,29 @@ class AIStack(Stack):
             resources=["*"]
         ))
 
-        process_transcript_lambda = input_stack.process_transcript_lambda
+        input_stack.process_transcript_lambda.add_to_role_policy(iam.PolicyStatement(
+            actions=[
+                "comprehend:DetectSentiment",
+                "comprehend:DetectEntities",
+                "comprehend:DetectKeyPhrases",
+                "comprehend:DetectSyntax",
+                "comprehend:DetectDominantLanguage"
+            ],
+            resources=["*"]
+        ))
 
+
+        input_stack.process_transcript_lambda.add_to_role_policy(iam.PolicyStatement(
+            actions=[
+                "bedrock:InvokeModel",
+                "bedrock:ListFoundationModels"
+            ],
+            resources=[
+                f"arn:aws:bedrock:{self.region}:{self.account}:foundation-model/deepseek.R1*",
+            ]
+        ))
+
+        input_stack.bucket.grant_read_write(input_stack.process_transcript_lambda)
 
 
         # # Lambda: Save summary to S3
@@ -94,52 +115,7 @@ class AIStack(Stack):
 
         # Grant necessary permissions
 
-        # '''Main Sequence: Step Functions'''
-        # # Lambda fetches text from S3 and sends to Comprehend
-        # fetch_task = tasks.LambdaInvoke(
-        #     self, "Fetch Transcript",
-        #     lambda_function=fetch_transcript_lambda,
-        #     output_path="$.Payload",
-        # )
 
-        # # Lambda gets enriched text from Comprehend and sends to Bedrock
-        # comprehend_task = tasks.LambdaInvoke(
-        #     self, "Comprehend Text",
-        #     lambda_function=comprehend_lambda,
-        #     output_path="$.Payload",
-        # )
-
-        # # Bedrock summarizes the text
-        # bedrock_task = tasks.LambdaInvoke(
-        #     self, "Summarize with Bedrock",
-        #     lambda_function=bedrock_lambda,
-        #     output_path="$.Payload",
-        # )
-
-        # # Lambda gets the summary and sends to S3
-        # save_summary_task = tasks.LambdaInvoke(
-        #     self, "Save Summary to S3",
-        #     lambda_function=save_summary_lambda,
-        #     output_path="$.Payload",
-        # )
-
-        # # Lambda sends all the metadata to DynamoDB
-        # save_metadata_task = tasks.LambdaInvoke(
-        #     self, "Save Metadata to DynamoDB",
-        #     lambda_function=save_metadata_lambda,
-        #     output_path="$.Payload",
-        # )
-
-        # # Chain tasks in order
-        # definition = fetch_task.next(
-        #     comprehend_task
-        # ).next(
-        #     bedrock_task
-        # ).next(
-        #     save_summary_task
-        # ).next(
-        #     save_metadata_task
-        # )
 
         # # Create the state machine
         # sm = sfn.StateMachine(

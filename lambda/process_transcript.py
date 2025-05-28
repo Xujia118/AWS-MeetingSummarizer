@@ -20,8 +20,12 @@ def handler(event, context):
         if not transcript:
             raise ValueError("Empty transcript retrieved")
 
+        print("transcript:", transcript)
+
         # Step 3: Analyze with Comprehend
         comprehend_results = analyze_with_comprehend(transcript)
+
+        print("comprehend result:", comprehend_results)
 
         # Step 4: Generate summary
         summary = generate_summary_with_bedrock(transcript, comprehend_results)
@@ -132,19 +136,18 @@ def generate_summary_with_bedrock(transcript, comprehend_results):
             Assistant:"""
 
         response = bedrock.invoke_model(
-            modelId="anthropic.claude-v2",
+            modelId="deepseek.r1-v1:0",
             contentType="application/json",
             accept="application/json",
             body=json.dumps({
                 "prompt": prompt,
                 "max_tokens_to_sample": 500,
-                "temperature": 0.4,
-                "top_p": 0.9,
-                "stop_sequences": ["\n\nHuman:"]
+                "temperature": 0.3,
             })
         )
 
         result = json.loads(response['body'].read())
+        print("result:", result)
         return result['completion'].strip()
 
     except Exception as e:
