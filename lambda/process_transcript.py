@@ -102,54 +102,56 @@ def analyze_with_comprehend(text):
 
 
 def generate_summary_with_bedrock(transcript, comprehend_results):
-    """Generate structured summary using Comprehend insights"""
+    """Generate summary using Claude 3 Haiku (on-demand)"""
     try:
-        # Extract important participants (PERSON entities with high confidence)
+        print("Using Claude 3 Haiku (on-demand)...")
+
+        # Prepare the prompt
         participants = [e['Text'] for e in comprehend_results['entities']
                         if e['Type'] == 'PERSON' and e['Score'] > 0.9]
-
-        # Get top 3 key phrases
         top_phrases = sorted(comprehend_results['key_phrases'],
-                             key=lambda x: x['Score'],
-                             reverse=True)[:3]
+                             key=lambda x: x['Score'], reverse=True)[:3]
 
-        prompt = f"""
-            Human: Create a comprehensive meeting summary using these insights:
+        prompt = f"""Create a structured meeting summary:
 
             Participants: {', '.join(set(participants))}
-            Main Topics: {', '.join([p['Text'] for p in top_phrases])}
-            Overall Sentiment: {comprehend_results['sentiment']}
+            Key Topics: {', '.join([p['Text'] for p in top_phrases])}
+            Sentiment: {comprehend_results['sentiment']}
 
-            Structure your response with:
-            1. Key Discussion Points
-            2. Decisions Made
-            3. Action Items (with owners where specified)
-            4. Follow-up Needed
+            Structure the response with:
+            1. Key Decisions
+            2. Action Items (with owners)
+            3. Follow-up Needed
 
-            Focus particularly on:
-            - {top_phrases[0]['Text']}
-            - {top_phrases[1]['Text'] if len(top_phrases) > 1 else ''}
+            Meeting Excerpts:
+            {transcript[:2000]}"""
 
-            Relevant Excerpts:
-            {transcript[:1500]}... [truncated]
-
-            Assistant:"""
+        # Claude 3 uses the Messages API
+        body = {
+            "anthropic_version": "bedrock-2023-05-31",
+            "messages": [{
+                "role": "user",
+                "content": [{
+                    "type": "text",
+                    "text": prompt
+                }]
+            }],
+            "max_tokens": 1024,
+            "temperature": 0.3
+        }
 
         response = bedrock.invoke_model(
-            modelId="deepseek.r1-v1:0",
+            modelId="anthropic.claude-3-haiku-20240307-v1:0",
             contentType="application/json",
             accept="application/json",
-            body=json.dumps({
-                "prompt": prompt,
-                "max_tokens_to_sample": 500,
-                "temperature": 0.3,
-            })
+            body=json.dumps(body)
         )
 
         result = json.loads(response['body'].read())
-        print("result:", result)
-        return result['completion'].strip()
+        summary = result['content'][0]['text']
+        print("Generated Summary:", summary)
+        return summary
 
     except Exception as e:
-        raise RuntimeError(f"Bedrock Error: {str(e)}")
-
+        print("Claude 3 Haiku Error:", str(e))
+        raise RuntimeError(f"Summary generation failed: {str(e)}")

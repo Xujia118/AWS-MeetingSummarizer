@@ -81,14 +81,13 @@ class AIStack(Stack):
             resources=["*"]
         ))
 
-
         input_stack.process_transcript_lambda.add_to_role_policy(iam.PolicyStatement(
             actions=[
                 "bedrock:InvokeModel",
                 "bedrock:ListFoundationModels"
             ],
             resources=[
-                f"arn:aws:bedrock:{self.region}:{self.account}:foundation-model/deepseek.R1*",
+                "arn:aws:bedrock:*::foundation-model/anthropic.claude-3-haiku-*"
             ]
         ))
 
