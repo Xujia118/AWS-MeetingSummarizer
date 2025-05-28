@@ -8,7 +8,7 @@ from aws_cdk import (
     aws_stepfunctions as sfn,
     aws_stepfunctions_tasks as tasks,
 )
-from hello_cdk.input_stack import InputStack
+
 from constructs import Construct
 
 '''
@@ -32,16 +32,17 @@ sequenceDiagram
 
 
 class AIStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, input_stack: InputStack, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, input_stack, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         '''
-        Transcribe is an independent step.
-        When SQS has a new message, a lambda worker is notified.
-        Then it fetches audio from S3 and sends to Transcribe.
-        Transcribe does transcription job and stores text back to S3.
+        Lambda for Transcribe. 
+        Transcribe is an independent step. When SQS has a new message, a lambda worker is notified.
+        It fetches audio path in S3 and sends to Transcribe.
+        Transcribe goes to find the audio file and transcribes, and stores text back to S3.
         '''
 
+        # Lambda retrieves audio path in S3 for Transcribe
         # Transcribe starts transcription job and saves text to S3
         transcribe_lambda = lambda_.Function(
             self, "StartTranscribeLambda",
@@ -69,33 +70,21 @@ class AIStack(Stack):
             resources=["*"]
         ))
 
+        process_transcript_lambda = input_stack.process_transcript_lambda
 
-        # # Lambda: Fetch transcript text from S3
-        # fetch_transcript_lambda = lambda_.Function(
-        #     self, "FetchTranscriptLambda",
-        #     runtime=lambda_.Runtime.PYTHON_3_12,
-        #     handler="fetch_transcript.handler",
-        #     code=lambda_.Code.from_asset("lambda/fetch_transcript"),
-        #     timeout=Duration.seconds(30),
+        # # Comprehend
+        # comprehend_policy = iam.PolicyStatement(
+        #     actions=["comprehend:DetectSentiment"],
+        #     resources=["*"]
         # )
+        # process_transcript_lambda.add_to_role_policy(comprehend_policy)
 
-        # # Call Comprehend on transcription text
-        # comprehend_lambda = lambda_.Function(
-        #     self, "ComprehendLambda",
-        #     runtime=lambda_.Runtime.PYTHON_3_12,
-        #     handler="comprehend_handler.handler",
-        #     code=lambda_.Code.from_asset("lambda/comprehend_handler"),
-        #     timeout=Duration.seconds(30),
+        # # Bedrock permissions (specific to the deepseek model)
+        # bedrock_policy = iam.PolicyStatement(
+        #     actions=["bedrock:InvokeModel"],
+        #     resources=["arn:aws:bedrock:*::foundation-model/deepseek.r1-v1:0"]
         # )
-
-        # # Lambda: Call Bedrock to summarize text
-        # bedrock_lambda = lambda_.Function(
-        #     self, "BedrockLambda",
-        #     runtime=lambda_.Runtime.PYTHON_3_12,
-        #     handler="bedrock_handler.handler",
-        #     code=lambda_.Code.from_asset("lambda/bedrock_handler"),
-        #     timeout=Duration.seconds(30),
-        # )
+        # process_transcript_lambda.add_to_role_policy(bedrock_policy)
 
         # # Lambda: Save summary to S3
         # save_summary_lambda = lambda_.Function(
@@ -106,7 +95,7 @@ class AIStack(Stack):
         #     timeout=Duration.seconds(30),
         # )
 
-        # # Lambda: Save metadata to DynamoDB
+        # # # Lambda: Save metadata to DynamoDB
         # save_metadata_lambda = lambda_.Function(
         #     self, "SaveMetadataLambda",
         #     runtime=lambda_.Runtime.PYTHON_3_12,
@@ -115,9 +104,9 @@ class AIStack(Stack):
         #     timeout=Duration.seconds(30),
         # )
 
-        # # Grant necessary permissions
+        # Grant necessary permissions
 
-        # '''Step Functions start'''
+        # '''Main Sequence: Step Functions'''
         # # Lambda fetches text from S3 and sends to Comprehend
         # fetch_task = tasks.LambdaInvoke(
         #     self, "Fetch Transcript",
