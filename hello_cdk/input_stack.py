@@ -9,14 +9,13 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-'''
-Upload audio file to S3 -> S3 event -> SQS
-'''
 
 class InputStack(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
+
+        '''Upload audio file to S3 -> S3 event -> SQS'''
 
         self.bucket = s3.Bucket(
             self, "MeetingSummarizerBucket",
@@ -34,8 +33,9 @@ class InputStack(Stack):
             s3.NotificationKeyFilter(prefix="audios/")
         )
 
-        # Lambda to etch transcript from S3
-        # This lambda has to be created here or we have cyclic dependency issue
+        '''Fetch transcript from S3'''      
+        # This lambda has to be created here or we will have cyclic dependency issue
+        
         self.process_transcript_lambda = lambda_.Function(
             self, "ProcessTranscript",
             function_name="ProcessTranscript",
@@ -46,12 +46,6 @@ class InputStack(Stack):
             memory_size=512
         )
 
-        # Grant permissions
-        # S3 read and write
-        self.bucket.grant_read(self.process_transcript_lambda)
-        self.bucket.grant_put(self.process_transcript_lambda)
-
-        # Call the trigger function in InputStack
         self.process_transcript_lambda.add_event_source(
             lambda_event_sources.S3EventSource(
                 self.bucket,
@@ -59,3 +53,7 @@ class InputStack(Stack):
                 filters=[s3.NotificationKeyFilter(prefix="texts/")]
             )
         )
+
+        # Grant permissions
+        self.bucket.grant_read(self.process_transcript_lambda)
+        self.bucket.grant_put(self.process_transcript_lambda)

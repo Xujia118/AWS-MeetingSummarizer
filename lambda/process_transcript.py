@@ -1,6 +1,7 @@
 import json
 import os
 import boto3
+import urllib.parse
 
 s3 = boto3.client('s3')
 comprehend = boto3.client('comprehend')
@@ -9,8 +10,9 @@ bedrock = boto3.client('bedrock-runtime')
 
 def handler(event, context):
     # Step 1: Get bucket and key from input
-    bucket = event.get('bucket')
-    key = event.get('key')
+    record = event['Records'][0]
+    bucket = record['s3']['bucket']['name']
+    key = urllib.parse.unquote_plus(record['s3']['object']['key'])
 
     print("bucket:", bucket)
     print("key:", key)
