@@ -18,7 +18,7 @@ class SharedResourcesStack(Stack):
         )
 
         self.audio_queue = sqs.Queue(
-            self, "AuioUploadQueue",
+            self, "AudioUploadQueue",
             queue_name="AudioUploadQueue-yanlu"
         )
 

@@ -21,15 +21,16 @@ class StorageStack(Stack):
             code=lambda_.Code.from_asset("lambda"),
             environment={
                 'SUMMARY_BUCKET': bucket.bucket_name,
-                'DDB_TABLE': table.table_name
+                'DDB_TABLE': table.table_name,
+                'SUMMARY_PREFIX': 'summaries/'
             }
         )
 
         store_summary_lambda.add_event_source(
-            lambda_event_sources.SqsEventSource(self.summary_queue)
+            lambda_event_sources.SqsEventSource(summary_queue)
         )
 
         # Permissions
         summary_queue.grant_consume_messages(store_summary_lambda)
-        bucket.grant_put(store_summary_lambda)
+        bucket.grant_read_write(store_summary_lambda)
         table.grant_write_data(store_summary_lambda)
