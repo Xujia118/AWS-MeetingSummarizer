@@ -2,10 +2,12 @@ import json
 import os
 import boto3
 import urllib.parse
+from datetime import datetime
 
 s3 = boto3.client('s3')
 comprehend = boto3.client('comprehend')
 bedrock = boto3.client('bedrock-runtime')
+sqs = boto3.client('sqs')
 
 
 def handler(event, context):
@@ -20,37 +22,20 @@ def handler(event, context):
         if not transcript:
             raise ValueError("Empty transcript retrieved")
 
-        print("transcript:", transcript)
-
         # Step 3: Analyze with Comprehend
         comprehend_results = analyze_with_comprehend(transcript)
 
-        print("comprehend result:", comprehend_results)
-
         # Step 4: Generate summary
         summary = generate_summary_with_bedrock(transcript, comprehend_results)
-
         print("Final summary:", summary)
 
-        # Step 5: Prepare response
-        return {
-            'statusCode': 200,
-            'bucket': bucket,
-            'key': key,
-            'summary': summary,
-            'comprehend_insights': {
-                'top_phrases': comprehend_results['key_phrases'][:5],
-                'main_entities': [e for e in comprehend_results['entities'] if e['Score'] > 0.9],
-                'sentiment': comprehend_results['sentiment']
-            }
-        }
+        # Step 5: Push to summary_queue 
+        meeting_id = datetime.now().strftime('%Y%m%dT%H%M%SZ')
+        send_summary_to_sqs(meeting_id, summary, bucket, key)
 
     except Exception as e:
-        return {
-            'statusCode': 500,
-            'error': str(e),
-            'event': event
-        }
+        print("Processing error:", str(e))
+        raise
 
 
 def get_transcript_from_s3(bucket, key):
@@ -155,3 +140,26 @@ def generate_summary_with_bedrock(transcript, comprehend_results):
     except Exception as e:
         print("Claude 3 Haiku Error:", str(e))
         raise RuntimeError(f"Summary generation failed: {str(e)}")
+
+
+def send_summary_to_sqs(meeting_id, summary, bucket, key):
+    try:
+        queue_url = os.environ['SUMMARY_QUEUE_URL']
+
+        message = {
+            'meeting_id': meeting_id,
+            'summary': summary,
+            'bucket': bucket,
+            'key': key
+        }
+
+        sqs.send_message(
+            QueueUrl = queue_url,
+            messageBody=json.dumps(message)
+        )
+
+        print(f"Sent summary to SQS for meeting_id={meeting_id}")
+    
+    except Exception as e:
+        raise RuntimeError(f"SQS Error: {str(e)}")
+

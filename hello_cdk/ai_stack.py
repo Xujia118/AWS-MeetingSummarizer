@@ -51,7 +51,8 @@ class AIStack(Stack):
             code=lambda_.Code.from_asset("lambda"),
             environment={
                 "TRANSCRIBE_OUTPUT_BUCKET": bucket.bucket_name,
-                "TRANSCRIBE_OUTPUT_PREFIX": "texts/"
+                "TRANSCRIBE_OUTPUT_PREFIX": "texts/",
+                "SUMMARY_QUEUE_URL": summary_queue.queue_url,
             },
             timeout=Duration.seconds(30),
         )

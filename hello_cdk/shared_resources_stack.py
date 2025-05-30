@@ -30,5 +30,9 @@ class SharedResourcesStack(Stack):
         self.table = dynamodb.Table(
             self, "MeetingSummarizerTable",
             table_name="MeetingSummarizerTable-yanlu",
-            
+            partition_key=dynamodb.Attribute(
+                name="meeting_id",
+                type=dynamodb.AttributeType.STRING
+            ),
+        billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST
         )
