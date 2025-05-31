@@ -153,9 +153,11 @@ def send_summary_to_sqs(meeting_id, summary, bucket, key):
             'key': key
         }
 
+        messsage_body = json.dumps(message)
+
         sqs.send_message(
-            QueueUrl = queue_url,
-            messageBody=json.dumps(message)
+            QueueUrl=queue_url,
+            MessageBody=messsage_body
         )
 
         print(f"Sent summary to SQS for meeting_id={meeting_id}")

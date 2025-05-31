@@ -16,6 +16,7 @@ class StorageStack(Stack):
 
         store_summary_lambda = lambda_.Function(
             self, "StoreSummary",
+            function_name="StoreSummary",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="store_summary.handler",
             code=lambda_.Code.from_asset("lambda"),
