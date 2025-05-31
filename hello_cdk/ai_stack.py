@@ -61,28 +61,6 @@ class AIStack(Stack):
             lambda_event_sources.SqsEventSource(audio_queue)
         )
 
-        # Process transcript lambda does the main AI workflow
-        process_transcript_lambda = lambda_.Function(
-            self, "ProcessTranscript",
-            function_name="ProcessTranscript",
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            handler="process_transcript.handler",
-            code=lambda_.Code.from_asset("lambda"),
-            timeout=Duration.seconds(30),
-            memory_size=512,
-            environment={
-                'SUMMARY_QUEUE_URL': summary_queue.url
-            }
-        )
-
-        process_transcript_lambda.add_event_source(
-            lambda_event_sources.S3EventSource(
-                bucket,
-                events=[s3.EventType.OBJECT_CREATED],
-                filters=[s3.NotificationKeyFilter(prefix="texts/")]
-            )
-        )
-
         # Grant permissions
         audio_queue.grant_consume_messages(transcribe_lambda)
         bucket.grant_read_write(transcribe_lambda)
@@ -90,27 +68,4 @@ class AIStack(Stack):
             actions=["transcribe:StartTranscriptionJob"],
             resources=["*"]
         ))
-
-        process_transcript_lambda.add_to_role_policy(iam.PolicyStatement(
-            actions=[
-                "comprehend:DetectSentiment",
-                "comprehend:DetectEntities",
-                "comprehend:DetectKeyPhrases",
-                "comprehend:DetectSyntax",
-                "comprehend:DetectDominantLanguage"
-            ],
-            resources=["*"]
-        ))
-
-        process_transcript_lambda.add_to_role_policy(iam.PolicyStatement(
-            actions=[
-                "bedrock:InvokeModel",
-                "bedrock:ListFoundationModels"
-            ],
-            resources=[
-                "arn:aws:bedrock:*::foundation-model/anthropic.claude-3-haiku-*"
-            ]
-        ))
-
-        summary_queue.grant_send_messages(process_transcript_lambda)
 

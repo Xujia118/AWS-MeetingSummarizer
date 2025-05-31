@@ -1,8 +1,11 @@
 from aws_cdk import (
     Stack,
+    Duration,
     aws_s3 as s3,
     aws_lambda as lambda_,
+    aws_lambda_event_sources as lambda_event_sources,
     aws_sqs as sqs,
+    aws_iam as iam,
     aws_dynamodb as dynamodb
 )
 from constructs import Construct
@@ -36,3 +39,53 @@ class SharedResourcesStack(Stack):
             ),
         billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST
         )
+
+        # TODO: Find a better solution to solve dependency issue
+        # This lambda shouldn't be here
+        # Process transcript lambda does the main AI workflow
+        process_transcript_lambda = lambda_.Function(
+            self, "ProcessTranscript",
+            function_name="ProcessTranscript",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="process_transcript.handler",
+            code=lambda_.Code.from_asset("lambda"),
+            timeout=Duration.seconds(30),
+            memory_size=512,
+            environment={
+                'SUMMARY_QUEUE_URL': self.summary_queue.queue_url
+            }
+        )
+
+        process_transcript_lambda.add_event_source(
+            lambda_event_sources.S3EventSource(
+                self.bucket,
+                events=[s3.EventType.OBJECT_CREATED],
+                filters=[s3.NotificationKeyFilter(prefix="texts/")]
+            )
+        )
+
+        # Permissions
+        self.bucket.grant_read(process_transcript_lambda)
+
+        process_transcript_lambda.add_to_role_policy(iam.PolicyStatement(
+            actions=[
+                "comprehend:DetectSentiment",
+                "comprehend:DetectEntities",
+                "comprehend:DetectKeyPhrases",
+                "comprehend:DetectSyntax",
+                "comprehend:DetectDominantLanguage"
+            ],
+            resources=["*"]
+        ))
+
+        process_transcript_lambda.add_to_role_policy(iam.PolicyStatement(
+            actions=[
+                "bedrock:InvokeModel",
+                "bedrock:ListFoundationModels"
+            ],
+            resources=[
+                "arn:aws:bedrock:*::foundation-model/anthropic.claude-3-haiku-*"
+            ]
+        ))
+
+        self.summary_queue.grant_send_messages(process_transcript_lambda)
