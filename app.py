@@ -25,15 +25,16 @@ ai_stack = AIStack(app, "AIStack",
                    summary_queue=shared_resources_stack.summary_queue
                    )
 
-
 storage_stack = StorageStack(app, "StorageStack",
                              bucket=shared_resources_stack.bucket,
                              summary_queue=shared_resources_stack.summary_queue,
                              table=shared_resources_stack.table
                              )
 
-api_stack = APIStack(app, "APISTACK",
+api_stack = APIStack(app, "APIStack",
                      bucket=shared_resources_stack.bucket,
+                     table=shared_resources_stack.table,
+
                      )
 
 
