@@ -22,7 +22,7 @@ class StorageStack(Stack):
             code=lambda_.Code.from_asset("lambda"),
             environment={
                 'SUMMARY_BUCKET': bucket.bucket_name,
-                'DDB_TABLE': table.table_name,
+                'SUMMARY_TABLE': table.table_name,
                 'SUMMARY_PREFIX': 'summaries/'
             }
         )

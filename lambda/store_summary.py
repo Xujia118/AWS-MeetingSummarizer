@@ -9,7 +9,7 @@ dynamodb = boto3.resource('dynamodb')
 # Read from environment variables set in CDK
 SUMMARY_BUCKET = os.environ['SUMMARY_BUCKET']
 SUMMARY_PREFIX = os.environ.get('SUMMARY_PREFIX', 'summaries/')
-TABLE_NAME = os.environ['DDB_TABLE']
+TABLE_NAME = os.environ['SUMMARY_TABLE']
 
 table = dynamodb.Table(TABLE_NAME)
 
@@ -50,4 +50,3 @@ def handler(event, context):
 
         table.put_item(Item=item)
 
-        print(f"Stored summary and metadata for meeting_id={meeting_id}")
