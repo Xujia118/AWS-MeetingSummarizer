@@ -34,7 +34,6 @@ storage_stack = StorageStack(app, "StorageStack",
 api_stack = APIStack(app, "APIStack",
                      bucket=shared_resources_stack.bucket,
                      table=shared_resources_stack.table,
-
                      )
 
 

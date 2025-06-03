@@ -89,7 +89,7 @@ class APIStack(Stack):
         single_summary = summaries.add_resource("{meeting_id}") 
         single_summary.add_method(
             'GET',
-            apigw.LambdaIntegrationOptions(),
+            apigw.LambdaIntegration(get_summary_lambda),
             request_parameters={
                 "method.request.path.meeting_id": True
             }
