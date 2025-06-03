@@ -1,4 +1,5 @@
 import os
+import json
 import boto3
 from urllib.parse import unquote_plus
 
@@ -17,8 +18,10 @@ def handler(event, context):
         
         headers = event.get('headers', {})
 
+        # Need to properly parse filename, or it will always default to audio_upload.mp3
+
         content_disposition = headers.get('content-disposition', '')
-        filename = (extract_filename(content_disposition) or "audio_upload").lstrip('/')
+        filename = (extract_filename(content_disposition) or "audio_upload.mp3").lstrip('/')
 
         content_type = headers.get("content-type", 'application/octet-stream')
 
@@ -34,13 +37,18 @@ def handler(event, context):
 
         print("presigned url:", presigned_url)
         
+        # API Gateway expects response body to be a string
         return {
             'statusCode': 200,
-            'body': {
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
                 'upload_url': presigned_url,
                 'filename': filename,
                 's3_path': f"s3://{AUDIO_BUCKET}/{AUDIO_PREFIX}{filename}"
-            }
+            })
         }
     
     except Exception as e:
