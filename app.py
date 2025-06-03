@@ -7,6 +7,7 @@ from hello_cdk.shared_resources_stack import SharedResourcesStack
 from hello_cdk.input_stack import InputStack
 from hello_cdk.ai_stack import AIStack
 from hello_cdk.storage_stack import StorageStack
+from hello_cdk.api_stack import APIStack 
 
 
 app = cdk.App()
@@ -30,6 +31,11 @@ storage_stack = StorageStack(app, "StorageStack",
                              summary_queue=shared_resources_stack.summary_queue,
                              table=shared_resources_stack.table
                              )
+
+api_stack = APIStack(app, "APISTACK",
+                     bucket=shared_resources_stack.bucket,
+                     )
+
 
 app.synth()
 
