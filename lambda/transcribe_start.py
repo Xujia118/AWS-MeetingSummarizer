@@ -17,7 +17,8 @@ def handler(event, context):
         bucket = s3_record['s3']['bucket']['name']
         key = urllib.parse.unquote_plus(s3_record['s3']['object']['key']) # decode the key exactly as S3 object
         media_uri = f"s3://{bucket}/{key}"
-        job_name = f"TranscriptionJob-{int(time.time())}"
+        meeting_id = key.split('/')[-1].split('.')[0]  # parse the meeting_id
+        job_name = f"TranscriptionJob-{meeting_id}"
         output_bucket = os.environ['TRANSCRIBE_OUTPUT_BUCKET']
 
         transcribe.start_transcription_job(

@@ -2,6 +2,7 @@ import os
 import json
 import boto3
 from urllib.parse import unquote_plus
+from datetime import datetime
 
 s3 = boto3.client('s3')
 
@@ -18,11 +19,10 @@ def handler(event, context):
         
         headers = event.get('headers', {})
 
-        # Need to properly parse filename, or it will always default to audio_upload.mp3
+        # We need to send meeting id to frontend now, because all sequent steps are within backend
+        meeting_id = datetime.now().strftime('%Y%m%dT%H%M%SZ')
 
-        content_disposition = headers.get('content-disposition', '')
-        filename = (extract_filename(content_disposition) or "audio_upload.mp3").lstrip('/')
-
+        filename = f"{meeting_id}.mp3"
         content_type = headers.get("content-type", 'application/octet-stream')
 
         presigned_url = s3.generate_presigned_url(
@@ -34,8 +34,6 @@ def handler(event, context):
             },
             ExpiresIn=3600
         )
-
-        print("presigned url:", presigned_url)
         
         # API Gateway expects response body to be a string
         return {
@@ -45,6 +43,7 @@ def handler(event, context):
                 'Access-Control-Allow-Origin': '*'
             },
             'body': json.dumps({
+                'meeting_id': meeting_id,
                 'upload_url': presigned_url,
                 'filename': filename,
                 's3_path': f"s3://{AUDIO_BUCKET}/{AUDIO_PREFIX}{filename}"

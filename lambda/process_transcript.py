@@ -2,7 +2,6 @@ import json
 import os
 import boto3
 import urllib.parse
-from datetime import datetime
 
 s3 = boto3.client('s3')
 comprehend = boto3.client('comprehend')
@@ -16,6 +15,9 @@ def handler(event, context):
         record = event['Records'][0]
         bucket = record['s3']['bucket']['name']
         key = urllib.parse.unquote_plus(record['s3']['object']['key'])
+        meeting_id = key.split("/").pop().replace(".json", "").split("TranscriptionJob-")[1]
+
+        print("meeting_id:", meeting_id)
 
         # Step 2: Fetch and parse transcript
         transcript = get_transcript_from_s3(bucket, key)
@@ -30,7 +32,6 @@ def handler(event, context):
         print("Final summary:", summary)
 
         # Step 5: Push to summary_queue 
-        meeting_id = datetime.now().strftime('%Y%m%dT%H%M%SZ')
         send_summary_to_sqs(meeting_id, summary, bucket, key)
 
     except Exception as e:

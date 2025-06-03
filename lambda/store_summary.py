@@ -50,4 +50,3 @@ def handler(event, context):
 
         table.put_item(Item=item)
 
-        print(f"Stored summary and metadata for meeting_id={meeting_id}")
