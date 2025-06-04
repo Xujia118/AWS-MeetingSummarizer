@@ -57,6 +57,7 @@ class APIStack(Stack):
 
         # Permissions
         bucket.grant_put(upload_audio_lambda)
+        bucket.grant_read(get_summary_lambda)
         table.grant_read_data(get_summary_lambda)
 
         # API Gateway
@@ -94,6 +95,8 @@ class APIStack(Stack):
                 "method.request.path.meeting_id": True
             }
         )
+
+
         
         # Output the API endpoint URL
         self.api_url = api.url
