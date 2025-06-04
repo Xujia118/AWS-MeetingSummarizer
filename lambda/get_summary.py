@@ -34,6 +34,9 @@ def handler(event, context):
 
         return {
             "statusCode": 200,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+            },
             "body": json.dumps({
                 "summary_url": item.get("summary_url"),
                 "audio_url": item.get("audio_url"),
