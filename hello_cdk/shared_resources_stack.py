@@ -17,7 +17,16 @@ class SharedResourcesStack(Stack):
 
         self.bucket = s3.Bucket(
             self, "MeetingSummarizerBucket",
-            bucket_name="meeting-summarizer-yanlu"
+            bucket_name="meeting-summarizer-yanlu",
+            cors=[
+                s3.CorsRule(
+                    allowed_methods=[s3.HttpMethods.PUT,
+                                     s3.HttpMethods.GET, 
+                                     s3.HttpMethods.HEAD],
+                    allowed_origins=["*"],
+                    allowed_headers=["*"]
+                )
+            ]
         )
 
         self.audio_queue = sqs.Queue(
@@ -37,7 +46,7 @@ class SharedResourcesStack(Stack):
                 name="meeting_id",
                 type=dynamodb.AttributeType.STRING
             ),
-        billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST
         )
 
         # TODO: Find a better solution to solve dependency issue

@@ -9,6 +9,7 @@ s3 = boto3.client('s3')
 AUDIO_BUCKET = os.environ['AUDIO_BUCKET']
 AUDIO_PREFIX = os.environ.get('AUDIO_PREFIX', 'audios/')
 
+
 def handler(event, context):
     try:
         if 'body' not in event:
@@ -16,14 +17,14 @@ def handler(event, context):
                 'statusCode': 400,
                 'body': 'No file content provided'
             }
-        
+
         headers = event.get('headers', {})
 
         # We need to send meeting id to frontend now, because all sequent steps are within backend
         meeting_id = datetime.now().strftime('%Y%m%dT%H%M%SZ')
 
         filename = f"{meeting_id}.mp3"
-        content_type = headers.get("content-type", 'application/octet-stream')
+        content_type = headers.get("Content-Type", 'application/octet-stream')
 
         presigned_url = s3.generate_presigned_url(
             'put_object',
@@ -34,13 +35,15 @@ def handler(event, context):
             },
             ExpiresIn=3600
         )
-        
+
         # API Gateway expects response body to be a string
         return {
             'statusCode': 200,
             'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
+                'Content-Type': 'application/octet-stream',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
             },
             'body': json.dumps({
                 'meeting_id': meeting_id,
@@ -49,7 +52,7 @@ def handler(event, context):
                 's3_path': f"s3://{AUDIO_BUCKET}/{AUDIO_PREFIX}{filename}"
             })
         }
-    
+
     except Exception as e:
         print(f"Error: {str(e)}")
         return {
@@ -69,4 +72,3 @@ def extract_filename(content_disposition):
             filename = part.split('=')[1].strip('"\' ')
             return unquote_plus(filename)  # Decode URL-encoded characters
     return None
-
