@@ -96,8 +96,6 @@ class APIStack(Stack):
             }
         )
 
-
-        
         # Output the API endpoint URL
         self.api_url = api.url
 
