@@ -25,7 +25,13 @@ def handler(event, context):
         summary = body['summary']
         bucket = body['bucket']  # original transcript bucket
         key = body['key']  # original filename
-        recipient_emails = body.get('recipient_emails', [])  # List of emails
+
+
+        # Load metadata (including recipient_emails) from DynamoDB
+        response = table.get_item(Key={'meeting_id': meeting_id})
+        item = response.get('Item', {})
+
+        recipient_emails = item.get('emails', [])
 
         # Compose S3 key for storing summary
         summary_key = f"{SUMMARY_PREFIX}{meeting_id}.txt"
@@ -42,15 +48,26 @@ def handler(event, context):
         audio_url = f"s3://{bucket}/{key}"
         summary_url = f"s3://{SUMMARY_BUCKET}/{summary_key}"
 
-        # Step 2: Save metadata to DynamoDB
-        item = {
-            'meeting_id': meeting_id,
-            'audio_url': audio_url,
-            'summary_url': summary_url,
-            'timestamp': datetime.now().isoformat()
-        }
-
-        table.put_item(Item=item)
+        # Step 2: Update DynamoDB
+        table.update_item(
+            Key={'meeting_id': meeting_id},
+            UpdateExpression="""
+                SET audio_url = :audio,
+                    summary_url = :summary,
+                    #ts = :ts,
+                    #st = :status
+            """,
+            ExpressionAttributeNames={
+                "#ts": "timestamp",
+                "#st": "status"
+            },
+            ExpressionAttributeValues={
+                ":audio": audio_url,
+                ":summary": summary_url,
+                ":ts": datetime.now().isoformat(),
+                ":status": "completed"
+            }
+        )
 
         # Step 3: Send notifications
         for email in recipient_emails:
