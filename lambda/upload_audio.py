@@ -24,14 +24,13 @@ def handler(event, context):
         meeting_id = datetime.now().strftime('%Y%m%dT%H%M%SZ')
 
         filename = f"{meeting_id}.mp3"
-        content_type = headers.get("Content-Type", 'application/octet-stream')
 
         presigned_url = s3.generate_presigned_url(
             'put_object',
             Params={
                 'Bucket': AUDIO_BUCKET,
                 'Key': f"{AUDIO_PREFIX}{filename}",
-                "ContentType": content_type
+                "ContentType": 'application/octet-stream'
             },
             ExpiresIn=3600
         )
