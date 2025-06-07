@@ -57,7 +57,7 @@ class APIStack(Stack):
         )
 
         # Lambda to handle email submissions
-        submit_emails_lambda = lambda_.Function(
+        collect_emails_lambda = lambda_.Function(
             self, 'SubmitEmails',
             function_name="SubmitEmails",
             runtime=lambda_.Runtime.PYTHON_3_12,
@@ -75,9 +75,11 @@ class APIStack(Stack):
 
         # Permissions
         bucket.grant_put(upload_audio_lambda)
+        table.grant_write(upload_audio_lambda)
         bucket.grant_read(get_summary_lambda)
-        table.grant_read_data(get_summary_lambda)
-        submit_emails_lambda.add_to_role_policy(iam.PolicyStatement(
+        table.grant_read_write(get_summary_lambda)
+        table.grant_write(collect_emails_lambda)
+        collect_emails_lambda.add_to_role_policy(iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
             actions=["ses:SendEmail", "ses:SendRawEmail"],
             resources=["*"]
