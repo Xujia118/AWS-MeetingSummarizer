@@ -10,8 +10,14 @@ table = dynamodb.Table(TABLE_NAME)
 
 
 def handler(event, context):
+
+    print("collecting emails...")
+
     try:
         body = json.loads(event['body'])
+
+        print('body:', body)
+
         emails = body.pop('emails', [])  # Remove emails from the body dict
 
         if not isinstance(emails, list):
@@ -41,8 +47,15 @@ def handler(event, context):
         # Store meetin id, metadata and emails in DynamoDB (First write)
         table.put_item(Item=item)
 
+        print("put item in db:", item)
+
         return {
             'statusCode': 200,
+            'headers': {
+                'Access-Control-Allow-Origin': '*',  # Or specific origin
+                'Access-Control-Allow-Credentials': True,
+                'Content-Type': 'application/json'
+            },
             'body': json.dumps({
                 'message': 'Meeting record created with emails',
                 'meeting_id': body['meeting_id']
@@ -52,6 +65,10 @@ def handler(event, context):
     except Exception as e:
         return {
             'statusCode': 500,
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Content-Type': 'application/json'
+            },
             'body': json.dumps({'error': str(e)})
         }
 

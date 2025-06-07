@@ -58,27 +58,27 @@ class APIStack(Stack):
 
         # Lambda to handle email submissions
         collect_emails_lambda = lambda_.Function(
-            self, 'SubmitEmails',
-            function_name="SubmitEmails",
+            self, 'CollectEmails',
+            function_name="CollectEmails",
             runtime=lambda_.Runtime.PYTHON_3_12,
-            handler="submit_emails.handler",
+            handler="collect_emails.handler",
             code=lambda_.Code.from_asset('lambda'),
             timeout=Duration.seconds(30),
             environment={
                 "SUMMARY_BUCKET": bucket.bucket_name,
                 'SUMMARY_TABLE': table.table_name,
                 "SUMMARY_PREFIX": "summaries/",
-                "SES_SENDER_EMAIL": "noreply@yourdomain.com",
+                "SES_SENDER_EMAIL": "xujia118@hotmail.com",
                 "SES_REGION": "us-east-1"
             }
         )
 
         # Permissions
         bucket.grant_put(upload_audio_lambda)
-        table.grant_write(upload_audio_lambda)
+        table.grant_write_data(upload_audio_lambda)
         bucket.grant_read(get_summary_lambda)
-        table.grant_read_write(get_summary_lambda)
-        table.grant_write(collect_emails_lambda)
+        table.grant_write_data(get_summary_lambda)
+        table.grant_write_data(collect_emails_lambda)
         collect_emails_lambda.add_to_role_policy(iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
             actions=["ses:SendEmail", "ses:SendRawEmail"],
@@ -125,7 +125,7 @@ class APIStack(Stack):
         emails = api.root.add_resource("emails")
         emails.add_method(
             'POST',
-            apigw.LambdaIntegration(submit_emails_lambda),
+            apigw.LambdaIntegration(collect_emails_lambda),
             request_parameters={
                 "method.request.header.Content-Type": True
             },

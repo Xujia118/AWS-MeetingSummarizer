@@ -17,11 +17,10 @@ class StorageStack(Stack):
         '''Read from SQS -> Write summary to S3 -> Write audio and summary urls to DB -> SES'''
 
         # SES
-        sender_email = "noreply@yourdomain.com" # to update
+        sender_email = "xujia118@hotmail.com" # to update
         ses.EmailIdentity(self, "SenderIdentity",
                           identity=ses.Identity.email(sender_email)
                           )
-
 
         store_summary_lambda = lambda_.Function(
             self, "StoreSummary",
