@@ -5,11 +5,13 @@ from datetime import datetime
 
 s3 = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
+ses = boto3.client('ses')
 
 # Read from environment variables set in CDK
 SUMMARY_BUCKET = os.environ['SUMMARY_BUCKET']
 SUMMARY_PREFIX = os.environ.get('SUMMARY_PREFIX', 'summaries/')
 TABLE_NAME = os.environ['SUMMARY_TABLE']
+SENDER_EMAIL = os.environ['SENDER_EMAIL']
 
 table = dynamodb.Table(TABLE_NAME)
 
@@ -22,8 +24,8 @@ def handler(event, context):
         meeting_id = body['meeting_id']
         summary = body['summary']
         bucket = body['bucket']  # original transcript bucket
-        # original transcript key (audio or transcript file key)
-        key = body['key']
+        key = body['key']  # original filename
+        recipient_emails = body.get('recipient_emails', [])  # List of emails
 
         # Compose S3 key for storing summary
         summary_key = f"{SUMMARY_PREFIX}{meeting_id}.txt"
@@ -50,3 +52,29 @@ def handler(event, context):
 
         table.put_item(Item=item)
 
+        # Step 3: Send notifications
+        for email in recipient_emails:
+            try:
+                ses.send_email(
+                    Source=SENDER_EMAIL,
+                    Destination={'ToAddresses': [email]},
+                    Message={
+                        'Subject': {'Data': f"Meeting Summary: {meeting_id}"},
+                        'Body': {
+                            'Text': {'Data': f"Summary:\n{summary}\n\nDownload: s3://{SUMMARY_BUCKET}/{summary_key}"},
+                            'Html': {'Data': f"""
+                        <html>
+                            <body>
+                                <h1>Meeting Summary</h1>
+                                <p>Meeting ID: {meeting_id}</p>
+                                <pre>{summary}</pre>
+                                <a href="https://s3.console.aws.amazon.com/s3/object/{SUMMARY_BUCKET}/{summary_key}">Download Summary</a>
+                            </body>
+                        </html>
+                    """}
+                        }
+                    }
+                )
+                print(f"Email sent to {email}")
+            except Exception as e:
+                print(f"Failed to send to {email}: {str(e)}")
