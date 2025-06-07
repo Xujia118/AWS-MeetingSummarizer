@@ -68,8 +68,8 @@ class APIStack(Stack):
                 "SUMMARY_BUCKET": bucket.bucket_name,
                 'SUMMARY_TABLE': table.table_name,
                 "SUMMARY_PREFIX": "summaries/",
-                "SES_SENDER_EMAIL": "xujia118@hotmail.com",
-                "SES_REGION": "us-east-1"
+                "SENDER_EMAIL": "xujia118@hotmail.com",
+                "REGION": "us-east-1"
             }
         )
 
@@ -77,7 +77,7 @@ class APIStack(Stack):
         bucket.grant_put(upload_audio_lambda)
         table.grant_write_data(upload_audio_lambda)
         bucket.grant_read(get_summary_lambda)
-        table.grant_write_data(get_summary_lambda)
+        table.grant_read_data(get_summary_lambda)
         table.grant_write_data(collect_emails_lambda)
         collect_emails_lambda.add_to_role_policy(iam.PolicyStatement(
             effect=iam.Effect.ALLOW,

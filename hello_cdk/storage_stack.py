@@ -28,10 +28,12 @@ class StorageStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="store_summary.handler",
             code=lambda_.Code.from_asset("lambda"),
+            timeout=Duration.seconds(30),
             environment={
                 'SUMMARY_BUCKET': bucket.bucket_name,
                 'SUMMARY_TABLE': table.table_name,
-                'SUMMARY_PREFIX': 'summaries/'
+                'SUMMARY_PREFIX': 'summaries/',
+                "SENDER_EMAIL": "xujia118@hotmail.com",
             }
         )
 
