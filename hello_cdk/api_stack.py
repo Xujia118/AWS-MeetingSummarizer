@@ -9,7 +9,8 @@ from aws_cdk import (
     Stack,
     Duration,
     aws_lambda as lambda_,
-    aws_apigateway as apigw
+    aws_apigateway as apigw,
+    aws_iam as iam
 )
 from constructs import Construct
 
@@ -29,7 +30,8 @@ class APIStack(Stack):
             timeout=Duration.seconds(500),
             environment={
                 "AUDIO_BUCKET": bucket.bucket_name,
-                "AUDIO_PREFIX": "audios/"
+                "AUDIO_PREFIX": "audios/",
+                "SUMMARY_TABLE": table.table_name
             }
         )
 
@@ -55,10 +57,34 @@ class APIStack(Stack):
             }
         )
 
+        # Lambda to handle email submissions
+        collect_emails_lambda = lambda_.Function(
+            self, 'CollectEmails',
+            function_name="CollectEmails",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="collect_emails.handler",
+            code=lambda_.Code.from_asset('lambda'),
+            timeout=Duration.seconds(30),
+            environment={
+                "SUMMARY_BUCKET": bucket.bucket_name,
+                'SUMMARY_TABLE': table.table_name,
+                "SUMMARY_PREFIX": "summaries/",
+                "SENDER_EMAIL": "xujia118@hotmail.com",
+                "REGION": "us-east-1"
+            }
+        )
+
         # Permissions
         bucket.grant_put(upload_audio_lambda)
+        table.grant_write_data(upload_audio_lambda)
         bucket.grant_read(get_summary_lambda)
         table.grant_read_data(get_summary_lambda)
+        table.grant_write_data(collect_emails_lambda)
+        collect_emails_lambda.add_to_role_policy(iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=["ses:SendEmail", "ses:SendRawEmail"],
+            resources=["*"]
+        ))
 
         # API Gateway
         api = apigw.RestApi(
@@ -93,6 +119,19 @@ class APIStack(Stack):
             apigw.LambdaIntegration(get_summary_lambda),
             request_parameters={
                 "method.request.path.meeting_id": True
+            }
+        )
+
+        # Collect recepients' emails POST method (might also need to confirm email link)
+        emails = api.root.add_resource("emails")
+        emails.add_method(
+            'POST',
+            apigw.LambdaIntegration(collect_emails_lambda),
+            request_parameters={
+                "method.request.header.Content-Type": True
+            },
+            request_models={
+                "application/json": apigw.Model.EMPTY_MODEL
             }
         )
 
