@@ -30,7 +30,8 @@ class APIStack(Stack):
             timeout=Duration.seconds(500),
             environment={
                 "AUDIO_BUCKET": bucket.bucket_name,
-                "AUDIO_PREFIX": "audios/"
+                "AUDIO_PREFIX": "audios/",
+                "SUMMARY_TABLE": table.table_name
             }
         )
 

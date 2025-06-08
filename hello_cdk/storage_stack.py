@@ -44,6 +44,7 @@ class StorageStack(Stack):
         # Permissions
         summary_queue.grant_consume_messages(store_summary_lambda)
         bucket.grant_read_write(store_summary_lambda)
+        table.grant_read_data(store_summary_lambda)
         table.grant_write_data(store_summary_lambda)
         store_summary_lambda.add_to_role_policy(
             iam.PolicyStatement(
