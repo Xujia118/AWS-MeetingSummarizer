@@ -1,11 +1,19 @@
 import json
 import os
 import boto3
+from botocore.config import Config
 import urllib.parse
 
-s3 = boto3.client('s3')
-comprehend = boto3.client('comprehend')
-bedrock = boto3.client('bedrock-runtime')
+config = Config(
+    retries={
+        'max_attempts': 3,
+        'mode': 'standard'  # includes exponential backoff
+    }
+)
+
+s3 = boto3.client('s3', config=config)
+comprehend = boto3.client('comprehend', config=config)
+bedrock = boto3.client('bedrock-runtime', config=config)
 sqs = boto3.client('sqs')
 
 
