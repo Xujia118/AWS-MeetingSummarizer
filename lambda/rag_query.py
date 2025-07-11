@@ -2,8 +2,7 @@ import json
 import os
 import boto3
 from botocore.config import Config
-from opensearchpy import OpenSearch, RequestsHttpConnection
-from requests_aws4auth import AWS4Auth
+from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth
 
 config = Config(
     retries={
@@ -14,17 +13,18 @@ config = Config(
 
 bedrock = boto3.client('bedrock-runtime', config=config)
 region = os.environ.get('AWS_REGION', 'us-east-1')
-service = 'aoss'
-credentials = boto3.Session().get_credentials()
-awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, service, session_token=credentials.token)
 
-# OpenSearch client
+# OpenSearch client setup
 opensearch_endpoint = os.environ['OPENSEARCH_ENDPOINT']
 index_name = os.environ['INDEX_NAME']
 
+# Use AWSV4SignerAuth for OpenSearch Serverless
+credentials = boto3.Session().get_credentials()
+auth = AWSV4SignerAuth(credentials, region, 'aoss')
+
 client = OpenSearch(
     hosts=[{'host': opensearch_endpoint.replace('https://', ''), 'port': 443}],
-    http_auth=awsauth,
+    http_auth=auth,
     use_ssl=True,
     verify_certs=True,
     connection_class=RequestsHttpConnection,
@@ -35,11 +35,21 @@ client = OpenSearch(
 def handler(event, context):
     """Handle RAG queries from API Gateway"""
     try:
+        print(f"Received event: {json.dumps(event)}")
+        
         # Parse the request
-        if 'body' in event:
-            body = json.loads(event['body']) if isinstance(event['body'], str) else event['body']
+        body = None
+        if 'body' in event and event['body'] is not None:
+            if isinstance(event['body'], str):
+                body = json.loads(event['body'])
+            else:
+                body = event['body']
         else:
             body = event
+        
+        # Ensure body is not None
+        if body is None:
+            body = {}
         
         query = body.get('query', '')
         meeting_id = body.get('meeting_id')  # Optional: filter by specific meeting
@@ -115,7 +125,7 @@ def generate_embedding(text):
         }
         
         response = bedrock.invoke_model(
-            modelId="amazon.titan-embed-text-v1",
+            modelId="amazon.titan-embed-text-v2:0",
             contentType="application/json",
             accept="application/json",
             body=json.dumps(body)

@@ -70,7 +70,15 @@ class VectorStack(Stack):
             ]
         )
 
-        # Data access policy for Lambda functions
+        # Add OpenSearch Serverless permissions to the role
+        opensearch_lambda_role.add_to_policy(iam.PolicyStatement(
+            actions=[
+                "aoss:APIAccessAll"
+            ],
+            resources=[f"arn:aws:aoss:{self.region}:{self.account}:collection/*"]
+        ))
+
+        # Data access policy for Lambda functions - created after Lambda role
         data_access_policy = opensearch.CfnAccessPolicy(
             self, "VectorCollectionDataPolicy",
             name="meeting-vectors-data-policy",
@@ -106,6 +114,20 @@ class VectorStack(Stack):
             ])
         )
 
+        # Create Lambda layer with dependencies
+        dependencies_layer = lambda_.LayerVersion(
+            self, "DependenciesLayer",
+            code=lambda_.Code.from_asset("lambda-layer", bundling={
+                "image": lambda_.Runtime.PYTHON_3_12.bundling_image,
+                "command": [
+                    "bash", "-c",
+                    "pip install -r requirements.txt -t /asset-output/python"
+                ]
+            }),
+            compatible_runtimes=[lambda_.Runtime.PYTHON_3_12],
+            description="Dependencies for meeting summarizer Lambda functions"
+        )
+
         # Lambda function to generate embeddings
         self.generate_embeddings_lambda = lambda_.Function(
             self, "GenerateEmbeddingsLambda",
@@ -113,6 +135,7 @@ class VectorStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="generate_embeddings.handler",
             code=lambda_.Code.from_asset("lambda"),
+            layers=[dependencies_layer],
             timeout=Duration.seconds(300),
             memory_size=1024,
             role=opensearch_lambda_role,
@@ -154,6 +177,7 @@ class VectorStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="rag_query.handler",
             code=lambda_.Code.from_asset("lambda"),
+            layers=[dependencies_layer],
             timeout=Duration.seconds(60),
             memory_size=1024,
             role=opensearch_lambda_role,

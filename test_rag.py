@@ -8,7 +8,7 @@ import json
 import requests
 
 # Replace with your actual API Gateway URL after deployment
-API_BASE_URL = "https://your-api-id.execute-api.us-east-1.amazonaws.com/prod"
+API_BASE_URL = "https://7x7f459uka.execute-api.us-east-1.amazonaws.com/prod"
 
 def test_rag_query(query, meeting_id=None):
     """Test the RAG query endpoint"""

@@ -2,8 +2,7 @@ import json
 import os
 import boto3
 from botocore.config import Config
-from opensearchpy import OpenSearch, RequestsHttpConnection
-from requests_aws4auth import AWS4Auth
+from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth
 import datetime
 
 config = Config(
@@ -15,17 +14,18 @@ config = Config(
 
 bedrock = boto3.client('bedrock-runtime', config=config)
 region = os.environ.get('AWS_REGION', 'us-east-1')
-service = 'aoss'
-credentials = boto3.Session().get_credentials()
-awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, service, session_token=credentials.token)
 
-# OpenSearch client
+# OpenSearch client setup
 opensearch_endpoint = os.environ['OPENSEARCH_ENDPOINT']
 index_name = os.environ['INDEX_NAME']
 
+# Use AWSV4SignerAuth for OpenSearch Serverless
+credentials = boto3.Session().get_credentials()
+auth = AWSV4SignerAuth(credentials, region, 'aoss')
+
 client = OpenSearch(
     hosts=[{'host': opensearch_endpoint.replace('https://', ''), 'port': 443}],
-    http_auth=awsauth,
+    http_auth=auth,
     use_ssl=True,
     verify_certs=True,
     connection_class=RequestsHttpConnection,
@@ -49,50 +49,68 @@ def handler(event, context):
 
 
 def ensure_index_exists():
-    """Create the OpenSearch index if it doesn't exist"""
+    """Create the OpenSearch index if it doesn't exist, or recreate if dimensions are wrong"""
     try:
-        if not client.indices.exists(index=index_name):
-            index_mapping = {
-                "settings": {
-                    "index": {
-                        "knn": True,
-                        "knn.algo_param.ef_search": 100
-                    }
-                },
-                "mappings": {
-                    "properties": {
-                        "meeting_id": {"type": "keyword"},
-                        "content_type": {"type": "keyword"},  # 'transcript' or 'summary'
-                        "content": {"type": "text"},
-                        "embedding": {
-                            "type": "knn_vector",
-                            "dimension": 1536,  # Titan embeddings dimension
-                            "method": {
-                                "name": "hnsw",
-                                "space_type": "cosinesimil",
-                                "engine": "nmslib"
-                            }
-                        },
-                        "timestamp": {"type": "date"},
-                        "bucket": {"type": "keyword"},
-                        "transcript_key": {"type": "keyword"},
-                        "chunk_index": {"type": "integer"},
-                        "metadata": {
-                            "type": "object",
-                            "properties": {
-                                "participants": {"type": "keyword"},
-                                "key_phrases": {"type": "keyword"},
-                                "sentiment": {"type": "keyword"}
-                            }
+        # Check if index exists
+        if client.indices.exists(index=index_name):
+            # Get current mapping to check dimensions
+            try:
+                mapping = client.indices.get_mapping(index=index_name)
+                current_dimension = mapping[index_name]['mappings']['properties']['embedding']['dimension']
+                
+                if current_dimension != 1024:
+                    print(f"Index exists but has wrong dimension ({current_dimension}). Recreating...")
+                    client.indices.delete(index=index_name)
+                    print("Old index deleted")
+                else:
+                    print(f"Index {index_name} already exists with correct dimensions")
+                    return
+            except Exception as e:
+                print(f"Error checking index mapping: {str(e)}. Recreating index...")
+                client.indices.delete(index=index_name)
+                print("Old index deleted")
+        
+        # Create new index with correct mapping
+        index_mapping = {
+            "settings": {
+                "index": {
+                    "knn": True,
+                    "knn.algo_param.ef_search": 100
+                }
+            },
+            "mappings": {
+                "properties": {
+                    "meeting_id": {"type": "keyword"},
+                    "content_type": {"type": "keyword"},  # 'transcript' or 'summary'
+                    "content": {"type": "text"},
+                    "embedding": {
+                        "type": "knn_vector",
+                        "dimension": 1024,  # Titan v2 embeddings dimension
+                        "method": {
+                            "name": "hnsw",
+                            "space_type": "cosinesimil",
+                            "engine": "nmslib"
+                        }
+                    },
+                    "timestamp": {"type": "date"},
+                    "bucket": {"type": "keyword"},
+                    "transcript_key": {"type": "keyword"},
+                    "chunk_index": {"type": "integer"},
+                    "doc_id": {"type": "keyword"},
+                    "metadata": {
+                        "type": "object",
+                        "properties": {
+                            "participants": {"type": "keyword"},
+                            "key_phrases": {"type": "keyword"},
+                            "sentiment": {"type": "keyword"}
                         }
                     }
                 }
             }
-            
-            client.indices.create(index=index_name, body=index_mapping)
-            print(f"Created index: {index_name}")
-        else:
-            print(f"Index {index_name} already exists")
+        }
+        
+        client.indices.create(index=index_name, body=index_mapping)
+        print(f"Created index: {index_name} with correct dimensions (1024)")
             
     except Exception as e:
         print(f"Error creating index: {str(e)}")
@@ -184,19 +202,28 @@ def generate_embedding(text):
         if len(text) > 25000:
             text = text[:25000]
         
+        print(f"Generating embedding for text: {text[:100]}...")
+        
         body = {
             "inputText": text
         }
         
         response = bedrock.invoke_model(
-            modelId="amazon.titan-embed-text-v1",
+            modelId="amazon.titan-embed-text-v2:0",
             contentType="application/json",
             accept="application/json",
             body=json.dumps(body)
         )
         
         result = json.loads(response['body'].read())
-        return result['embedding']
+        embedding = result.get('embedding')
+        
+        if embedding is None:
+            print(f"Warning: No embedding returned from Bedrock. Response: {result}")
+            raise ValueError("No embedding returned from Bedrock")
+        
+        print(f"Successfully generated embedding with dimension: {len(embedding)}")
+        return embedding
         
     except Exception as e:
         print(f"Error generating embedding: {str(e)}")
@@ -206,7 +233,10 @@ def generate_embedding(text):
 def store_embedding(meeting_id, content, content_type, embedding, bucket, transcript_key, chunk_index):
     """Store embedding in OpenSearch"""
     try:
-        doc_id = f"{meeting_id}_{content_type}_{chunk_index}"
+        print(f"About to store embedding - type: {type(embedding)}, length: {len(embedding) if embedding else 'None'}")
+        
+        if embedding is None:
+            raise ValueError("Embedding is None - cannot store")
         
         document = {
             "meeting_id": meeting_id,
@@ -216,16 +246,18 @@ def store_embedding(meeting_id, content, content_type, embedding, bucket, transc
             "timestamp": datetime.datetime.utcnow().isoformat(),
             "bucket": bucket,
             "transcript_key": transcript_key,
-            "chunk_index": chunk_index
+            "chunk_index": chunk_index,
+            "doc_id": f"{meeting_id}_{content_type}_{chunk_index}"  # Include as field instead of ID
         }
+        
+        print(f"Document prepared, embedding field type: {type(document['embedding'])}")
         
         response = client.index(
             index=index_name,
-            id=doc_id,
             body=document
         )
         
-        print(f"Stored embedding for {doc_id}: {response['result']}")
+        print(f"Stored embedding for {meeting_id}_{content_type}_{chunk_index}: {response['result']}")
         
     except Exception as e:
         print(f"Error storing embedding: {str(e)}")
