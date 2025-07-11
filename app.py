@@ -7,7 +7,8 @@ from hello_cdk.shared_resources_stack import SharedResourcesStack
 from hello_cdk.input_stack import InputStack
 from hello_cdk.ai_stack import AIStack
 from hello_cdk.storage_stack import StorageStack
-from hello_cdk.api_stack import APIStack 
+from hello_cdk.api_stack import APIStack
+from hello_cdk.vector_stack import VectorStack
 
 
 app = cdk.App()
@@ -31,11 +32,16 @@ storage_stack = StorageStack(app, "StorageStack",
                              table=shared_resources_stack.table
                              )
 
+vector_stack = VectorStack(app, "VectorStack",
+                          bucket=shared_resources_stack.bucket,
+                          embedding_queue=shared_resources_stack.embedding_queue
+                          )
+
 api_stack = APIStack(app, "APIStack",
                      bucket=shared_resources_stack.bucket,
                      table=shared_resources_stack.table,
+                     rag_query_lambda=vector_stack.rag_query_lambda
                      )
 
 
 app.synth()
-

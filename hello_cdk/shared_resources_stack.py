@@ -39,6 +39,12 @@ class SharedResourcesStack(Stack):
             queue_name='SummaryQueue-yanlu'
         )
 
+        self.embedding_queue = sqs.Queue(
+            self, 'EmbeddingQueue',
+            queue_name='EmbeddingQueue-yanlu',
+            visibility_timeout=Duration.seconds(300)  # Match Lambda timeout
+        )
+
         self.table = dynamodb.Table(
             self, "MeetingSummarizerTable",
             table_name="MeetingSummarizerTable-yanlu",
@@ -61,7 +67,8 @@ class SharedResourcesStack(Stack):
             timeout=Duration.seconds(30),
             memory_size=512,
             environment={
-                'SUMMARY_QUEUE_URL': self.summary_queue.queue_url
+                'SUMMARY_QUEUE_URL': self.summary_queue.queue_url,
+                'EMBEDDING_QUEUE_URL': self.embedding_queue.queue_url
             }
         )
 
@@ -98,3 +105,4 @@ class SharedResourcesStack(Stack):
         ))
 
         self.summary_queue.grant_send_messages(process_transcript_lambda)
+        self.embedding_queue.grant_send_messages(process_transcript_lambda)

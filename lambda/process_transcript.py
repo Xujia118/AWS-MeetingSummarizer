@@ -42,6 +42,9 @@ def handler(event, context):
         # Step 5: Push to summary_queue 
         send_summary_to_sqs(meeting_id, summary, bucket, key)
 
+        # Step 6: Trigger embedding generation
+        send_to_embedding_queue(meeting_id, transcript, summary, bucket, key, context)
+
     except Exception as e:
         print("Processing error:", str(e))
         raise
@@ -174,3 +177,33 @@ def send_summary_to_sqs(meeting_id, summary, bucket, key):
     except Exception as e:
         raise RuntimeError(f"SQS Error: {str(e)}")
 
+
+def send_to_embedding_queue(meeting_id, transcript, summary, bucket, key, context):
+    """Send data to embedding queue for vector generation"""
+    try:
+        embedding_queue_url = os.environ.get('EMBEDDING_QUEUE_URL')
+        if not embedding_queue_url:
+            print("EMBEDDING_QUEUE_URL not set, skipping embedding generation")
+            return
+
+        message = {
+            'meeting_id': meeting_id,
+            'transcript': transcript,
+            'summary': summary,
+            'bucket': bucket,
+            'transcript_key': key,
+            'timestamp': context.aws_request_id if context else None
+        }
+
+        message_body = json.dumps(message)
+
+        sqs.send_message(
+            QueueUrl=embedding_queue_url,
+            MessageBody=message_body
+        )
+
+        print(f"Sent embedding request to SQS for meeting_id={meeting_id}")
+    
+    except Exception as e:
+        print(f"Embedding queue error (non-fatal): {str(e)}")
+        # Don't raise - embedding generation is optional

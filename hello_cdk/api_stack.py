@@ -17,7 +17,7 @@ from constructs import Construct
 
 class APIStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, bucket, table, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, bucket, table, rag_query_lambda=None, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # Lambda for audio upload
@@ -135,6 +135,19 @@ class APIStack(Stack):
             }
         )
 
+        # RAG Query endpoint (if RAG lambda is provided)
+        if rag_query_lambda:
+            query = api.root.add_resource("query")
+            query.add_method(
+                'POST',
+                apigw.LambdaIntegration(rag_query_lambda),
+                request_parameters={
+                    "method.request.header.Content-Type": True
+                },
+                request_models={
+                    "application/json": apigw.Model.EMPTY_MODEL
+                }
+            )
+
         # Output the API endpoint URL
         self.api_url = api.url
-
